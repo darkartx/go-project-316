@@ -4,10 +4,10 @@
 
 ### Usage
 Build application
-`make build`
+```make build```
 
 Run
-`./bin/hexlet-go-crawler <url>`
+```./bin/hexlet-go-crawler <url>```
 
 ### Help
 ```
