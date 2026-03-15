@@ -1,15 +1,17 @@
 ### Hexlet tests and linter status:
 [![Actions Status](https://github.com/darkartx/go-project-316/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/darkartx/go-project-316/actions)
+[![CI](https://github.com/darkartx/go-project-316/actions/workflows/test.yml/badge.svg)](https://github.com/darkartx/go-project-316/actions)
 
 ### Usage
 Build application
 `make build`
 
 Run
-`./bin/hexlet-go-crawler <url>
+`./bin/hexlet-go-crawler <url>`
 
 ### Help
-`NAME:
+```
+NAME:
    hexlet-go-crawler - analyze a website structure
 
 USAGE:
@@ -23,4 +25,5 @@ GLOBAL OPTIONS:
    --rps uint           limit requests per second (overrides delay) (default: 0)
    --user-agent string  custom user agent
    --workers uint       number of concurrent workers (default: 4)
-   --help, -h           show help`
+   --help, -h           show help
+```
