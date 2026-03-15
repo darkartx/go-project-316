@@ -7,6 +7,21 @@ import (
 	"time"
 )
 
+type Report struct {
+	RootURL     string       `json:"root_url"`
+	Depth       uint         `json:"depth"`
+	GeneratedAt time.Time    `json:"generated_at"`
+	Pages       []ReportPage `json:"pages"`
+}
+
+type ReportPage struct {
+	URL        string `json:"url"`
+	Depth      uint   `json:"depth"`
+	HTTPStatus int    `json:"http_status"`
+	Status     string `json:"status"`
+	Error      string `json:"error"`
+}
+
 type Options struct {
 	URL         string
 	Depth       uint
@@ -42,11 +57,22 @@ func analize(ctx context.Context, opts Options) (Report, error) {
 	report.Depth = opts.Depth
 	report.GeneratedAt = time.Now()
 	report.Pages = make([]ReportPage, 1)
-	report.Pages[0].URL = opts.URL
-	report.Pages[0].Depth = report.Depth - 1
-	report.Pages[0].HTTPStatus = http.StatusOK
-	report.Pages[0].Status = "ok"
-	report.Pages[0].Error = ""
+
+	report.Pages[0] = analizePage(report.RootURL, report.Depth, opts.HTTPClient)
 
 	return report, nil
+}
+
+func analizePage(url string, depth uint, httpClient *http.Client) ReportPage {
+	report := ReportPage{url, depth - 1, 0, "ok", ""}
+
+	response, err := httpClient.Get(url)
+	if err != nil {
+		report.Error = err.Error()
+		return report
+	}
+
+	report.HTTPStatus = response.StatusCode
+
+	return report
 }
