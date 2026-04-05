@@ -3,10 +3,10 @@
 [![CI](https://github.com/darkartx/go-project-316/actions/workflows/test.yml/badge.svg)](https://github.com/darkartx/go-project-316/actions)
 
 ### Usage
-Build application
+Build application  
 ```make build```
 
-Run
+Run  
 ```./bin/hexlet-go-crawler <url>```
 
 ### Help

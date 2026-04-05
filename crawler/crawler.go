@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var Now = time.Now
+
 type Report struct {
 	RootURL     string       `json:"root_url"`
 	Depth       uint         `json:"depth"`
@@ -55,7 +57,7 @@ func analize(ctx context.Context, opts Options) (Report, error) {
 
 	report.RootURL = opts.URL
 	report.Depth = opts.Depth
-	report.GeneratedAt = time.Now()
+	report.GeneratedAt = Now()
 	report.Pages = make([]ReportPage, 1)
 
 	report.Pages[0] = analizePage(report.RootURL, report.Depth, opts.HTTPClient)
