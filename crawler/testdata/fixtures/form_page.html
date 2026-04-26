@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Form Page</title>
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a>
+    </nav>
+    <h1>Form Page</h1>
+    <form action="/submit" method="post">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name">
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email">
+        <button type="submit">Submit</button>
+    </form>
+    <form action="/search" method="get">
+        <input type="text" name="q" placeholder="Search...">
+        <button type="submit">Search</button>
+    </form>
+    <a href="/">Back to Home</a>
+</body>
+</html>

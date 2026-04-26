@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mixed Content Page</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <style>
+        body { font-family: sans-serif; }
+        .container { max-width: 1200px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+    </nav>
+    <h1>Mixed Content</h1>
+    <p>This page has a mix of internal, external, broken, and special links.</p>
+
+    <!-- Internal links -->
+    <a href="/contact">Internal Contact</a>
+    <a href="/blog">Internal Blog</a>
+
+    <!-- External links -->
+    <a href="https://www.example.com">External Example</a>
+
+    <!-- Broken internal links -->
+    <a href="/not-found">Broken 404</a>
+
+    <!-- Anchor links -->
+    <a href="#top">Top of Page</a>
+
+    <!-- JavaScript links -->
+    <a href="javascript:void(0)">JavaScript Link</a>
+    <a href="javascript:doSomething()">Another JS Link</a>
+
+    <!-- Data links -->
+    <a href="data:text/plain,Hello">Data Link</a>
+
+    <!-- Links with query params -->
+    <a href="/blog?page=2&amp;sort=date">Blog with Query</a>
+    <a href="/api/data?format=json">API Data</a>
+
+    <!-- Various assets -->
+    <img src="/assets/images/logo.png" alt="Logo">
+    <img src="/assets/images/banner.jpg" alt="Banner">
+    <img src="https://external.com/image.png" alt="External Image">
+
+    <script src="/assets/js/app.js"></script>
+    <script src="https://external.com/script.js"></script>
+
+    <a href="/">Back to Home</a>
+</body>
+</html>

@@ -1,10 +1,11 @@
 module code
 
-go 1.24.5
+go 1.25.0
 
 require (
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.7.0
+	golang.org/x/net v0.53.0
 )
 
 require (

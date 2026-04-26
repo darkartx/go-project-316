@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /private/
+Disallow: /api/
+Disallow: /redirect-loop-a
+Disallow: /redirect-loop-b
+Crawl-delay: 1
+
+User-agent: Googlebot
+Allow: /
+Disallow: /private/
+
+Sitemap: http://127.0.0.1:34355/sitemap.xml
