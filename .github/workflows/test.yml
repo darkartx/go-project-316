@@ -44,13 +44,13 @@ jobs:
         version: latest
 
     - name: Test
-      run: go test -v -coverprofile=coverage.out --race ./...
+      run: go test -v --race ./...
 
-    - name: Generate HTML coverage report
-      run: go tool cover -html=coverage.out -o coverage.html
+    # - name: Generate HTML coverage report
+    #   run: go tool cover -html=coverage.out -o coverage.html
 
-    - name: Upload HTML coverage report artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report-html
-        path: coverage.html
+    # - name: Upload HTML coverage report artifact
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: coverage-report-html
+    #     path: coverage.html
