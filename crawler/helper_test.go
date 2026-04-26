@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -232,6 +233,37 @@ func (t *localClientTransport) RoundTrip(req *http.Request) (*http.Response, err
 	return &http.Response{
 		Status:        http.StatusText(http.StatusOK),
 		StatusCode:    http.StatusOK,
+		Body:          http.NoBody,
+		ContentLength: 0,
+	}, nil
+}
+
+func failingClient() *http.Client {
+	return &http.Client{
+		Transport: &failingTransport{},
+	}
+}
+
+type failingTransport struct{}
+
+func (t *failingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return nil, errors.New("connection refused: network unreachable")
+}
+
+func successClient(code int) *http.Client {
+	return &http.Client{
+		Transport: &sucessTransport{code},
+	}
+}
+
+type sucessTransport struct {
+	Code int
+}
+
+func (t *sucessTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return &http.Response{
+		Status:        http.StatusText(t.Code),
+		StatusCode:    t.Code,
 		Body:          http.NoBody,
 		ContentLength: 0,
 	}, nil

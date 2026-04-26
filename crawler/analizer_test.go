@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -169,7 +170,7 @@ func Test_AnalizerAnalize_Page(t *testing.T) {
 			assert.WithinRange(t, resultPage.DiscoveredAt, startTime, endTime)
 		}
 
-		for url, _ := range cases {
+		for url := range cases {
 			t.Errorf("expected result page: %s", url)
 		}
 	})
@@ -187,7 +188,7 @@ func Test_AnalizerAnalize_CtxWithTimeout(t *testing.T) {
 			t.Fatalf("parse rootUrl error: %v", err)
 		}
 
-		analizer := NewAnalizer(rootUrl, 2, httpClient)
+		analizer := NewAnalizer(rootUrl, 10, httpClient)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 
@@ -202,7 +203,126 @@ func Test_AnalizerAnalize_CtxWithTimeout(t *testing.T) {
 		}
 
 		assert.Equal(t, server.URL+"/", result.RootURL)
-		assert.Equal(t, uint(2), result.Depth)
+		assert.Equal(t, uint(10), result.Depth)
 		assert.WithinRange(t, result.GeneratedAt, startTime, endTime)
 	})
+}
+
+func Test_AnalizerAnalize_Timeout(t *testing.T) {
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(1 * time.Millisecond)
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+	defer server.Close()
+
+	httpClient := http.DefaultClient
+	httpClient.Timeout = 1 * time.Microsecond
+
+	rootUrl, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse rootUrl error: %v", err)
+	}
+
+	analizer := NewAnalizer(rootUrl, 10, httpClient)
+	ctx := context.Background()
+
+	startTime := time.Now()
+	result, err := analizer.Analize(ctx)
+	endTime := time.Now()
+
+	if err != nil {
+		t.Fatalf("analizer.Analize error: %v", err)
+	}
+
+	assert.Equal(t, server.URL, result.RootURL)
+	assert.Equal(t, uint(10), result.Depth)
+	assert.WithinRange(t, result.GeneratedAt, startTime, endTime)
+
+	cases := map[string]struct {
+		Depth      uint
+		Error      string
+		HTTPStatus int
+	}{
+		server.URL: {
+			Depth:      9,
+			HTTPStatus: 0,
+			Error:      fmt.Sprintf(`Get "%s": context deadline exceeded (Client.Timeout exceeded while awaiting headers)`, server.URL),
+		},
+	}
+
+	for _, resultPage := range result.Pages {
+		tt, ok := cases[resultPage.URL]
+		if ok {
+			delete(cases, resultPage.URL)
+		} else {
+			t.Errorf("unexpected result page: %s", resultPage.URL)
+			continue
+		}
+
+		assert.Equal(t, tt.Depth, resultPage.Depth)
+		assert.Equal(t, tt.Error, resultPage.Error)
+		assert.Equal(t, tt.HTTPStatus, resultPage.HTTPStatus)
+		assert.WithinRange(t, resultPage.DiscoveredAt, startTime, endTime)
+	}
+
+	for url := range cases {
+		t.Errorf("expected result page: %s", url)
+	}
+}
+
+func Test_AnalizerAnalize_NetworkError(t *testing.T) {
+	httpClient := failingClient()
+
+	rootUrl, err := url.Parse("https://example.com")
+	if err != nil {
+		t.Fatalf("parse rootUrl error: %v", err)
+	}
+
+	analizer := NewAnalizer(rootUrl, 10, httpClient)
+	ctx := context.Background()
+
+	startTime := time.Now()
+	result, err := analizer.Analize(ctx)
+	endTime := time.Now()
+
+	if err != nil {
+		t.Fatalf("analizer.Analize error: %v", err)
+	}
+
+	assert.Equal(t, "https://example.com", result.RootURL)
+	assert.Equal(t, uint(10), result.Depth)
+	assert.WithinRange(t, result.GeneratedAt, startTime, endTime)
+
+	cases := map[string]struct {
+		Depth      uint
+		Error      string
+		HTTPStatus int
+	}{
+		"https://example.com": {
+			Depth:      9,
+			HTTPStatus: 0,
+			Error:      `Get "https://example.com": connection refused: network unreachable`,
+		},
+	}
+
+	for _, resultPage := range result.Pages {
+		tt, ok := cases[resultPage.URL]
+		if ok {
+			delete(cases, resultPage.URL)
+		} else {
+			t.Errorf("unexpected result page: %s", resultPage.URL)
+			continue
+		}
+
+		assert.Equal(t, tt.Depth, resultPage.Depth)
+		assert.Equal(t, tt.Error, resultPage.Error)
+		assert.Equal(t, tt.HTTPStatus, resultPage.HTTPStatus)
+		assert.WithinRange(t, resultPage.DiscoveredAt, startTime, endTime)
+	}
+
+	for url := range cases {
+		t.Errorf("expected result page: %s", url)
+	}
 }

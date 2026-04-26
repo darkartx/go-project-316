@@ -63,7 +63,7 @@ func analizeUrlGet(httpClient *http.Client, url *url.URL) *AnalizeUrlResult {
 	if err != nil {
 		result.Error = err
 	} else {
-		defer res.Body.Close()
+		defer res.Body.Close() //nolint:errcheck
 
 		result.HttpCode = res.StatusCode
 		result.UrlType = detectUrlType(res)

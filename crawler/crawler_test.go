@@ -1,269 +1,210 @@
 package crawler
 
-// func TestAnalizeSuccess(t *testing.T) {
-// 	httpClient := &http.Client{
-// 		Transport: &successTransport{http.StatusOK},
-// 	}
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
 
-// 	opts := Options{
-// 		URL:        "http://example.com",
-// 		Depth:      1,
-// 		Retries:    0,
-// 		Delay:      100 * time.Millisecond,
-// 		Timeout:    5 * time.Second,
-// 		HTTPClient: httpClient,
-// 	}
+	"github.com/kinbiko/jsonassert"
+)
 
-// 	ctx := context.Background()
-// 	result, err := Analize(ctx, opts)
+func Test_Analize_Page(t *testing.T) {
+	withTestServer(t, func(server *httptest.Server) {
+		httpClient, err := localClient(server.URL)
+		if err != nil {
+			t.Fatalf("localClient error: %v", err)
+		}
 
-// 	if err != nil {
-// 		t.Fatalf("Expected no error, got: %v", err)
-// 	}
+		opts := Options{
+			URL:        server.URL + "/about",
+			Depth:      10,
+			Retries:    0,
+			Delay:      100 * time.Millisecond,
+			Timeout:    5 * time.Second,
+			HTTPClient: httpClient,
+		}
 
-// 	expected := `{
-// 		"depth": 1,
-// 		"generated_at": "2026-03-01T01:02:03Z",
-// 		"root_url": "http://example.com",
-// 		"pages": [
-// 			{
-// 				"depth": 0,
-// 				"error": "",
-// 				"http_status": 200,
-// 				"status": "ok",
-// 				"url": "http://example.com",
-// 				"broken_links": [],
-// 				"discovered_at": "2026-03-01T01:02:03Z"
-// 			}
-// 		]
-// 	}`
+		ctx := context.Background()
+		_, err = Analize(ctx, opts)
 
-// 	assert.JSONEq(t, expected, string(result))
-// }
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+	})
+}
 
-// func TestAnalizeBadRequest(t *testing.T) {
-// 	httpClient := &http.Client{
-// 		Transport: &successTransport{http.StatusBadRequest},
-// 	}
+func Test_Analize_BadRequest(t *testing.T) {
+	httpClient := successClient(http.StatusBadRequest)
 
-// 	opts := Options{
-// 		URL:        "http://example.com",
-// 		Depth:      1,
-// 		Retries:    0,
-// 		Delay:      100 * time.Millisecond,
-// 		Timeout:    5 * time.Second,
-// 		HTTPClient: httpClient,
-// 	}
+	opts := Options{
+		URL:        "http://example.com",
+		Depth:      1,
+		Retries:    0,
+		Delay:      100 * time.Millisecond,
+		Timeout:    5 * time.Second,
+		HTTPClient: httpClient,
+	}
 
-// 	ctx := context.Background()
-// 	result, err := Analize(ctx, opts)
+	ctx := context.Background()
+	result, err := Analize(ctx, opts)
 
-// 	if err != nil {
-// 		t.Fatalf("Expected no error, got: %v", err)
-// 	}
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
 
-// 	expected := `{
-// 		"depth": 1,
-// 		"generated_at": "2026-03-01T01:02:03Z",
-// 		"root_url": "http://example.com",
-// 		"pages": [
-// 			{
-// 				"depth": 0,
-// 				"error": "",
-// 				"http_status": 400,
-// 				"status": "ok",
-// 				"url": "http://example.com",
-// 				"broken_links": [],
-// 				"discovered_at": "2026-03-01T01:02:03Z"
-// 			}
-// 		]
-// 	}`
+	ja := jsonassert.New(t)
 
-// 	assert.JSONEq(t, expected, string(result))
-// }
+	expected := `{
+		"depth": 1,
+		"generated_at": "<<PRESENCE>>",
+		"root_url": "http://example.com",
+		"pages": [
+			{
+				"depth": 0,
+				"error": "",
+				"http_status": 400,
+				"status": "ok",
+				"url": "http://example.com",
+				"broken_links": [],
+				"discovered_at": "<<PRESENCE>>"
+			}
+		]
+	}`
 
-// func TestAnalizeServerError(t *testing.T) {
-// 	httpClient := &http.Client{
-// 		Transport: &successTransport{http.StatusInternalServerError},
-// 	}
+	ja.Assert(string(result), expected)
+}
 
-// 	opts := Options{
-// 		URL:        "http://example.com",
-// 		Depth:      1,
-// 		Retries:    0,
-// 		Delay:      100 * time.Millisecond,
-// 		Timeout:    5 * time.Second,
-// 		HTTPClient: httpClient,
-// 	}
+func Test_Analize_ServerError(t *testing.T) {
+	httpClient := successClient(http.StatusInternalServerError)
 
-// 	ctx := context.Background()
-// 	result, err := Analize(ctx, opts)
+	opts := Options{
+		URL:        "http://example.com",
+		Depth:      1,
+		Retries:    0,
+		Delay:      100 * time.Millisecond,
+		Timeout:    5 * time.Second,
+		HTTPClient: httpClient,
+	}
 
-// 	if err != nil {
-// 		t.Fatalf("Expected no error, got: %v", err)
-// 	}
+	ctx := context.Background()
+	result, err := Analize(ctx, opts)
 
-// 	expected := `{
-// 		"depth": 1,
-// 		"generated_at": "2026-03-01T01:02:03Z",
-// 		"root_url": "http://example.com",
-// 		"pages": [
-// 			{
-// 				"depth": 0,
-// 				"error": "",
-// 				"http_status": 500,
-// 				"status": "ok",
-// 				"url": "http://example.com",
-// 				"broken_links": [],
-// 				"discovered_at": "2026-03-01T01:02:03Z"
-// 			}
-// 		]
-// 	}`
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
 
-// 	assert.JSONEq(t, expected, string(result))
-// }
+	ja := jsonassert.New(t)
 
-// type successTransport struct {
-// 	code int
-// }
+	expected := `{
+		"depth": 1,
+		"generated_at": "<<PRESENCE>>",
+		"root_url": "http://example.com",
+		"pages": [
+			{
+				"depth": 0,
+				"error": "",
+				"http_status": 500,
+				"status": "ok",
+				"url": "http://example.com",
+				"broken_links": [],
+				"discovered_at": "<<PRESENCE>>"
+			}
+		]
+	}`
 
-// func (t *successTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-// 	return &http.Response{
-// 		Status:        http.StatusText(t.code),
-// 		StatusCode:    t.code,
-// 		Body:          http.NoBody,
-// 		ContentLength: 0,
-// 	}, nil
-// }
+	ja.Assert(string(result), expected)
+}
 
-// func TestAnalizeTimeout(t *testing.T) {
-// 	server := httptest.NewServer(
-// 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 			time.Sleep(1 * time.Second)
-// 			w.WriteHeader(http.StatusOK)
-// 		}),
-// 	)
-// 	defer server.Close()
+func Test_Analize_Timeout(t *testing.T) {
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(1 * time.Millisecond)
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+	defer server.Close()
 
-// 	opts := Options{
-// 		URL:        server.URL,
-// 		Depth:      1,
-// 		Retries:    0,
-// 		Delay:      100 * time.Millisecond,
-// 		Timeout:    10 * time.Millisecond,
-// 		HTTPClient: http.DefaultClient,
-// 	}
+	opts := Options{
+		URL:        server.URL,
+		Depth:      1,
+		Retries:    0,
+		Delay:      100 * time.Millisecond,
+		Timeout:    1 * time.Microsecond,
+		HTTPClient: http.DefaultClient,
+	}
 
-// 	ctx := context.Background()
-// 	result, err := Analize(ctx, opts)
+	ctx := context.Background()
+	result, err := Analize(ctx, opts)
 
-// 	if err != nil {
-// 		t.Fatalf("Expected no error, got: %v", err)
-// 	}
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
 
-// 	expected := fmt.Sprintf(`{
-// 		"depth": 1,
-// 		"generated_at": "2026-03-01T01:02:03Z",
-// 		"root_url": "%[1]s",
-// 		"pages": [
-// 			{
-// 				"depth": 0,
-// 				"error": "Get \"%[1]s\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
-// 				"http_status": 0,
-// 				"status": "ok",
-// 				"url": "%[1]s",
-// 				"broken_links": [],
-// 				"discovered_at": "2026-03-01T01:02:03Z"
-// 			}
-// 		]
-// 	}`, server.URL)
+	ja := jsonassert.New(t)
 
-// 	assert.JSONEq(t, expected, string(result))
-// }
+	expected := fmt.Sprintf(`{
+		"depth": 1,
+		"generated_at": "<<PRESENCE>>",
+		"root_url": "%[1]s",
+		"pages": [
+			{
+				"depth": 0,
+				"error": "Get \"%[1]s\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+				"http_status": 0,
+				"status": "ok",
+				"url": "%[1]s",
+				"broken_links": [],
+				"discovered_at": "<<PRESENCE>>"
+			}
+		]
+	}`, server.URL)
 
-// func TestAnalizeNetworkError(t *testing.T) {
-// 	httpClient := &http.Client{
-// 		Transport: &failingTransport{},
-// 	}
+	ja.Assert(string(result), expected)
+}
 
-// 	opts := Options{
-// 		URL:        "http://example.com",
-// 		Depth:      1,
-// 		Retries:    0,
-// 		Delay:      100 * time.Millisecond,
-// 		Timeout:    5 * time.Second,
-// 		HTTPClient: httpClient,
-// 	}
+func Test_Analize_NetworkError(t *testing.T) {
+	httpClient := failingClient()
 
-// 	ctx := context.Background()
-// 	result, err := Analize(ctx, opts)
+	opts := Options{
+		URL:        "http://example.com",
+		Depth:      1,
+		Retries:    0,
+		Delay:      100 * time.Millisecond,
+		Timeout:    5 * time.Second,
+		HTTPClient: httpClient,
+	}
 
-// 	if err != nil {
-// 		t.Fatalf("Expected no error, got: %v", err)
-// 	}
+	ctx := context.Background()
+	result, err := Analize(ctx, opts)
 
-// 	expected := `{
-// 		"depth": 1,
-// 		"generated_at": "2026-03-01T01:02:03Z",
-// 		"root_url": "http://example.com",
-// 		"pages": [
-// 			{
-// 				"depth": 0,
-// 				"error": "Get \"http://example.com\": connection refused: network unreachable",
-// 				"http_status": 0,
-// 				"status": "ok",
-// 				"url": "http://example.com",
-// 				"broken_links": [],
-// 				"discovered_at": "2026-03-01T01:02:03Z"
-// 			}
-// 		]
-// 	}`
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
 
-// 	assert.JSONEq(t, expected, string(result))
-// }
+	ja := jsonassert.New(t)
 
-// type failingTransport struct{}
+	expected := `{
+		"depth": 1,
+		"generated_at": "<<PRESENCE>>",
+		"root_url": "http://example.com",
+		"pages": [
+			{
+				"depth": 0,
+				"error": "Get \"http://example.com\": connection refused: network unreachable",
+				"http_status": 0,
+				"status": "ok",
+				"url": "http://example.com",
+				"broken_links": [],
+				"discovered_at": "<<PRESENCE>>"
+			}
+		]
+	}`
 
-// func (t *failingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-// 	return nil, errors.New("connection refused: network unreachable")
-// }
-
-// func TestAnalizeOffline(t *testing.T) {
-// 	opts := Options{
-// 		URL:        "http://10.255.255.1",
-// 		Depth:      1,
-// 		Retries:    0,
-// 		Delay:      100 * time.Millisecond,
-// 		Timeout:    5 * time.Second,
-// 		HTTPClient: http.DefaultClient,
-// 	}
-
-// 	ctx := context.Background()
-// 	result, err := Analize(ctx, opts)
-
-// 	if err != nil {
-// 		t.Fatalf("Expected no error, got: %v", err)
-// 	}
-
-// 	expected := `{
-// 		"depth": 1,
-// 		"generated_at": "2026-03-01T01:02:03Z",
-// 		"root_url": "http://10.255.255.1",
-// 		"pages": [
-// 			{
-// 				"depth": 0,
-// 				"error": "Get \"http://10.255.255.1\": dial tcp 10.255.255.1:80: connect: no route to host",
-// 				"http_status": 0,
-// 				"status": "ok",
-// 				"url": "http://10.255.255.1",
-// 				"broken_links": [],
-// 				"discovered_at": "2026-03-01T01:02:03Z"
-// 			}
-// 		]
-// 	}`
-
-// 	assert.JSONEq(t, expected, string(result))
-// }
+	ja.Assert(string(result), expected)
+}
 
 //////////////////////////////////////////////////////////////////////////////////
 
