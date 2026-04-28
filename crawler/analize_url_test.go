@@ -29,6 +29,11 @@ func Test_AnalizeUrlGet_Page(t *testing.T) {
 		assert.Equal(t, http.StatusOK, result.HttpCode)
 		assert.Equal(t, UrlTypePage, result.UrlType)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
+		assert.True(t, result.PageData.Seo.HasTitle)
+		assert.Equal(t, "Test Site - Home&", result.PageData.Seo.Title)
+		assert.True(t, result.PageData.Seo.HasDescription)
+		assert.Equal(t, "Test Site - Description&", result.PageData.Seo.Description)
+		assert.True(t, result.PageData.Seo.HasH1)
 
 		expectedLinks := []struct {
 			Url      string
@@ -136,6 +141,11 @@ func Test_AnalizeUrlGet_PageWithoutLinks(t *testing.T) {
 		assert.Equal(t, UrlTypePage, result.UrlType)
 		assert.Len(t, result.PageData.Links, 0)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
+		assert.False(t, result.PageData.Seo.HasTitle)
+		assert.Equal(t, "", result.PageData.Seo.Title)
+		assert.False(t, result.PageData.Seo.HasDescription)
+		assert.Equal(t, "", result.PageData.Seo.Description)
+		assert.False(t, result.PageData.Seo.HasH1)
 	})
 }
 
@@ -162,7 +172,7 @@ func Test_AnalizeUrlGet_Sitemap(t *testing.T) {
 	})
 }
 
-func TestAnalizeUrlGet_Error(t *testing.T) {
+func Test_AnalizeUrlGet_Error(t *testing.T) {
 	httpClient := &http.Client{}
 
 	parsedURL, err := url.Parse("http://127.0.0.1:19999/nonexistent")
@@ -183,7 +193,7 @@ func TestAnalizeUrlGet_Error(t *testing.T) {
 	assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 }
 
-func TestAnalizeUrlGet_DuplicateLinks(t *testing.T) {
+func Test_AnalizeUrlGet_DuplicateLinks(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
 		httpClient := http.DefaultClient
 
@@ -222,7 +232,7 @@ func TestAnalizeUrlGet_DuplicateLinks(t *testing.T) {
 	})
 }
 
-func TestAnalizeUrlGet_AnchorLinks(t *testing.T) {
+func Test_AnalizeUrlGet_AnchorLinks(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
 		httpClient := http.DefaultClient
 
@@ -259,7 +269,7 @@ func TestAnalizeUrlGet_AnchorLinks(t *testing.T) {
 	})
 }
 
-func TestAnalizeUrlGet_ExternalLinks(t *testing.T) {
+func Test_AnalizeUrlGet_ExternalLinks(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
 		httpClient := http.DefaultClient
 
@@ -299,7 +309,7 @@ func TestAnalizeUrlGet_ExternalLinks(t *testing.T) {
 	})
 }
 
-func TestAnalizeUrlGet_MixedContent(t *testing.T) {
+func Test_AnalizeUrlGet_MixedContent(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
 		httpClient := http.DefaultClient
 
@@ -440,7 +450,7 @@ func Test_AnalizeUrlHead_Sitemap(t *testing.T) {
 	})
 }
 
-func TestAnalizeUrlHead_Error(t *testing.T) {
+func Test_AnalizeUrlHead_Error(t *testing.T) {
 	httpClient := &http.Client{}
 
 	parsedURL, err := url.Parse("http://127.0.0.1:19999/nonexistent")

@@ -67,6 +67,11 @@ func Test_Analize_BadRequest(t *testing.T) {
 				"error": "",
 				"http_status": 400,
 				"status": "ok",
+				"seo": {
+					"has_title": false,
+					"has_description": false,
+					"has_h1": false
+				},
 				"url": "http://example.com",
 				"broken_links": [],
 				"discovered_at": "<<PRESENCE>>"
@@ -108,6 +113,11 @@ func Test_Analize_ServerError(t *testing.T) {
 				"error": "",
 				"http_status": 500,
 				"status": "ok",
+				"seo": {
+					"has_title": false,
+					"has_description": false,
+					"has_h1": false
+				},
 				"url": "http://example.com",
 				"broken_links": [],
 				"discovered_at": "<<PRESENCE>>"
@@ -155,6 +165,11 @@ func Test_Analize_Timeout(t *testing.T) {
 				"error": "Get \"%[1]s\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
 				"http_status": 0,
 				"status": "ok",
+				"seo": {
+					"has_title": false,
+					"has_description": false,
+					"has_h1": false
+				},
 				"url": "%[1]s",
 				"broken_links": [],
 				"discovered_at": "<<PRESENCE>>"
@@ -196,6 +211,11 @@ func Test_Analize_NetworkError(t *testing.T) {
 				"error": "Get \"http://example.com\": connection refused: network unreachable",
 				"http_status": 0,
 				"status": "ok",
+				"seo": {
+					"has_title": false,
+					"has_description": false,
+					"has_h1": false
+				},
 				"url": "http://example.com",
 				"broken_links": [],
 				"discovered_at": "<<PRESENCE>>"

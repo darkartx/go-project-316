@@ -191,6 +191,12 @@ func (a *Analizer) makePageReport(page *AnalizeUrl, depth uint) ReportPage {
 
 	reportPage.BrokenLinks = make([]ReportPageBrokenLink, 0)
 	if page.Result.PageData != nil {
+		reportPage.Seo.HasTitle = page.Result.PageData.Seo.HasTitle
+		reportPage.Seo.Title = page.Result.PageData.Seo.Title
+		reportPage.Seo.HasDescription = page.Result.PageData.Seo.HasDescription
+		reportPage.Seo.Description = page.Result.PageData.Seo.Description
+		reportPage.Seo.HasH1 = page.Result.PageData.Seo.HasH1
+
 		for _, link := range page.Result.PageData.Links {
 			item := a.doneUrls[link.Url.String()]
 

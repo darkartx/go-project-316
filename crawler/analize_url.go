@@ -38,6 +38,7 @@ type AnalizeUrlResult struct {
 
 type PageData struct {
 	Links []PageDataLink
+	Seo   PageDataSeo
 }
 
 type LinkType uint8
@@ -50,6 +51,14 @@ const (
 type PageDataLink struct {
 	Url      *url.URL
 	LinkType LinkType
+}
+
+type PageDataSeo struct {
+	HasTitle       bool
+	Title          string
+	HasDescription bool
+	Description    string
+	HasH1          bool
 }
 
 func analizeUrlGet(httpClient *http.Client, url *url.URL) *AnalizeUrlResult {
@@ -129,7 +138,7 @@ func mediaTypeToUrlType(mediaType string) UrlType {
 
 func extractPageData(body io.Reader, rootUrl *url.URL) (*PageData, error) {
 	links := make([]PageDataLink, 0)
-	result := &PageData{links}
+	result := &PageData{links, PageDataSeo{}}
 
 	seenLinks := make(map[string]struct{})
 
@@ -140,10 +149,11 @@ func extractPageData(body io.Reader, rootUrl *url.URL) (*PageData, error) {
 			break
 		}
 
-		token := tokenizer.Token()
 		if tt != html.StartTagToken && tt != html.SelfClosingTagToken {
 			continue
 		}
+
+		token := tokenizer.Token()
 
 		switch token.Data {
 		case "a", "link", "script", "img", "source", "iframe":
@@ -155,10 +165,21 @@ func extractPageData(body io.Reader, rootUrl *url.URL) (*PageData, error) {
 					result.Links = append(result.Links, *link)
 				}
 			}
+		case "title":
+			result.Seo.HasTitle = true
+			result.Seo.Title = extractHtmlString(token, tokenizer)
+		case "meta":
+			value, is := extractDescription(token)
+
+			if is {
+				result.Seo.HasDescription = true
+				result.Seo.Description = value
+			}
+		case "h1":
+			result.Seo.HasH1 = true
 		default:
 			continue
 		}
-
 	}
 
 	return result, nil
@@ -211,4 +232,45 @@ func extractHtmlLink(token html.Token, rootUrl *url.URL) *PageDataLink {
 	}
 
 	return nil
+}
+
+func extractHtmlString(startToken html.Token, tokenizer *html.Tokenizer) string {
+	var sb strings.Builder
+
+	for {
+		tt := tokenizer.Next()
+		if tt == html.ErrorToken {
+			break
+		}
+
+		token := tokenizer.Token()
+		if tt == html.EndTagToken && token.Data == startToken.Data {
+			break
+		}
+
+		sb.WriteString(token.String())
+	}
+
+	return html.UnescapeString(sb.String())
+}
+
+func extractDescription(token html.Token) (string, bool) {
+	var result string
+	var isDescription bool
+
+	for _, a := range token.Attr {
+		if a.Key == "name" && a.Val == "description" {
+			isDescription = true
+		}
+
+		if a.Key == "content" {
+			result = a.Val
+		}
+	}
+
+	if isDescription {
+		return html.UnescapeString(result), true
+	}
+
+	return "", false
 }

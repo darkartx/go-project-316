@@ -12,6 +12,84 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_AnalizerAnalize_BrokenLinks(t *testing.T) {
+	withTestServer(t, func(server *httptest.Server) {
+		httpClient, err := localClient(server.URL)
+		if err != nil {
+			t.Fatalf("localClient error: %v", err)
+		}
+
+		rootUrl, err := url.Parse(server.URL + "/broken-links")
+		if err != nil {
+			t.Fatalf("parse rootUrl error: %v", err)
+		}
+
+		analizer := NewAnalizer(rootUrl, 1, httpClient)
+
+		ctx := context.Background()
+
+		startTime := time.Now()
+		result, err := analizer.Analize(ctx)
+		endTime := time.Now()
+
+		if err != nil {
+			t.Fatalf("analizer.Analize error: %v", err)
+		}
+
+		assert.Equal(t, server.URL+"/broken-links", result.RootURL)
+		assert.Equal(t, uint(1), result.Depth)
+		assert.WithinRange(t, result.GeneratedAt, startTime, endTime)
+		assert.Equal(t, uint(0), result.Pages[0].Depth)
+		assert.Equal(t, "", result.Pages[0].Error)
+		assert.Equal(t, http.StatusOK, result.Pages[0].HTTPStatus)
+		assert.Equal(t, "ok", result.Pages[0].Status)
+		assert.Equal(t, server.URL+"/broken-links", result.Pages[0].URL)
+
+		cases := map[string]struct {
+			Error      string
+			StatusCode int
+		}{
+			server.URL + "/not-found": {
+				Error:      "",
+				StatusCode: http.StatusNotFound,
+			},
+			server.URL + "/server-error": {
+				Error:      "",
+				StatusCode: http.StatusInternalServerError,
+			},
+			server.URL + "/this-does-not-exist": {
+				Error:      "",
+				StatusCode: http.StatusNotFound,
+			},
+			server.URL + "/another-missing-page": {
+				Error:      "",
+				StatusCode: http.StatusNotFound,
+			},
+			server.URL + "/assets/images/missing.png": {
+				Error:      "",
+				StatusCode: http.StatusNotFound,
+			},
+		}
+
+		for _, brokenLink := range result.Pages[0].BrokenLinks {
+			tt, ok := cases[brokenLink.URL]
+			if ok {
+				delete(cases, brokenLink.URL)
+			} else {
+				t.Errorf("unexpected broken link: %s", brokenLink.URL)
+				continue
+			}
+
+			assert.Equal(t, tt.Error, brokenLink.Error)
+			assert.Equal(t, tt.StatusCode, brokenLink.StatusCode)
+		}
+
+		for url := range cases {
+			t.Errorf("expected broken link: %s", url)
+		}
+	})
+}
+
 func Test_AnalizerAnalize_Page(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
 		httpClient, err := localClient(server.URL)
@@ -41,76 +119,132 @@ func Test_AnalizerAnalize_Page(t *testing.T) {
 		assert.WithinRange(t, result.GeneratedAt, startTime, endTime)
 
 		cases := map[string]struct {
-			Depth          uint
-			Error          string
-			HTTPStatus     int
-			BrokenLinksLen int
+			Depth             uint
+			Error             string
+			HTTPStatus        int
+			BrokenLinksLen    int
+			SeoHasTitle       bool
+			SeoTitle          string
+			SeoHasDescription bool
+			SeoDescription    string
+			SeoHasH1          bool
 		}{
 			server.URL + "/about": {
-				Depth:      9,
-				HTTPStatus: http.StatusOK,
+				Depth:             9,
+				HTTPStatus:        http.StatusOK,
+				SeoHasTitle:       true,
+				SeoTitle:          "About Us",
+				SeoHasDescription: true,
+				SeoDescription:    "Test Site - Description",
+				SeoHasH1:          true,
 			},
 			server.URL + "/": {
-				Depth:      8,
-				HTTPStatus: http.StatusOK,
+				Depth:             8,
+				HTTPStatus:        http.StatusOK,
+				SeoHasTitle:       true,
+				SeoTitle:          "Test Site - Home&",
+				SeoHasDescription: true,
+				SeoDescription:    "Test Site - Description&",
+				SeoHasH1:          true,
 			},
 			server.URL + "/contact": {
-				Depth:      8,
-				HTTPStatus: http.StatusOK,
+				Depth:       8,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Contact",
+				SeoHasH1:    true,
 			},
 			server.URL + "/external-links": {
-				Depth:      7,
-				HTTPStatus: http.StatusOK,
+				Depth:       7,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "External Links Page",
+				SeoHasH1:    true,
 			},
 			server.URL + "/large-page": {
-				Depth:      7,
-				HTTPStatus: http.StatusOK,
+				Depth:       7,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Large Page",
+				SeoHasH1:    true,
 			},
 			server.URL + "/duplicate-links": {
-				Depth:      7,
-				HTTPStatus: http.StatusOK,
+				Depth:       7,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Duplicate Links Page",
+				SeoHasH1:    true,
 			},
 			server.URL + "/mixed-content": {
 				Depth:          7,
 				HTTPStatus:     http.StatusOK,
+				SeoHasTitle:    true,
+				SeoTitle:       "Mixed Content Page",
+				SeoHasH1:       true,
 				BrokenLinksLen: 1,
 			},
 			server.URL + "/nofollow-page": {
-				Depth:      7,
-				HTTPStatus: http.StatusOK,
+				Depth:       7,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "NoFollow Page",
+				SeoHasH1:    true,
 			},
 			server.URL + "/broken-links": {
 				Depth:          7,
 				HTTPStatus:     http.StatusOK,
+				SeoHasTitle:    true,
+				SeoTitle:       "Broken Links Page",
+				SeoHasH1:       true,
 				BrokenLinksLen: 5,
 			},
 			server.URL + "/redirect": {
-				Depth:      7,
-				HTTPStatus: http.StatusOK,
+				Depth:             7,
+				HTTPStatus:        http.StatusOK,
+				SeoHasTitle:       true,
+				SeoTitle:          "About Us",
+				SeoHasDescription: true,
+				SeoDescription:    "Test Site - Description",
+				SeoHasH1:          true,
 			},
 			server.URL + "/anchor-links": {
-				Depth:      7,
-				HTTPStatus: http.StatusOK,
+				Depth:       7,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Anchor Links Page",
+				SeoHasH1:    true,
 			},
 			server.URL + "/deep/nested/page": {
-				Depth:      7,
-				HTTPStatus: http.StatusOK,
+				Depth:       7,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Deep Nested Page",
+				SeoHasH1:    true,
 			},
 			server.URL + "/no-links": {
 				Depth:      7,
 				HTTPStatus: http.StatusOK,
 			},
 			server.URL + "/form-page": {
-				Depth:      7,
-				HTTPStatus: http.StatusOK,
+				Depth:       7,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Form Page",
+				SeoHasH1:    true,
 			},
 			server.URL + "/blog": {
-				Depth:      7,
-				HTTPStatus: http.StatusOK,
+				Depth:       7,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Blog",
+				SeoHasH1:    true,
 			},
 			server.URL + "/relative-links": {
-				Depth:      7,
-				HTTPStatus: http.StatusOK,
+				Depth:       7,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Relative Links Page",
+				SeoHasH1:    true,
 			},
 			server.URL + "/robots.txt": {
 				Depth:      7,
@@ -121,16 +255,25 @@ func Test_AnalizerAnalize_Page(t *testing.T) {
 				HTTPStatus: http.StatusOK,
 			},
 			server.URL + "/blog?page=2&sort=date": {
-				Depth:      6,
-				HTTPStatus: http.StatusOK,
+				Depth:       6,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Blog",
+				SeoHasH1:    true,
 			},
 			server.URL + "/blog/post-2": {
-				Depth:      6,
-				HTTPStatus: http.StatusOK,
+				Depth:       6,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Blog Post 2",
+				SeoHasH1:    true,
 			},
 			server.URL + "/blog/post-1": {
-				Depth:      6,
-				HTTPStatus: http.StatusOK,
+				Depth:       6,
+				HTTPStatus:  http.StatusOK,
+				SeoHasTitle: true,
+				SeoTitle:    "Blog Post 1",
+				SeoHasH1:    true,
 			},
 			server.URL + "/not-found": {
 				Depth:      6,
@@ -163,9 +306,16 @@ func Test_AnalizerAnalize_Page(t *testing.T) {
 				continue
 			}
 
+			// fmt.Printf("~~~ %v\n", resultPage.URL)
+
 			assert.Equal(t, tt.Depth, resultPage.Depth)
 			assert.Equal(t, tt.Error, resultPage.Error)
 			assert.Equal(t, tt.HTTPStatus, resultPage.HTTPStatus)
+			assert.Equal(t, tt.SeoHasTitle, resultPage.Seo.HasTitle)
+			assert.Equal(t, tt.SeoTitle, resultPage.Seo.Title)
+			assert.Equal(t, tt.SeoHasDescription, resultPage.Seo.HasDescription)
+			assert.Equal(t, tt.SeoDescription, resultPage.Seo.Description)
+			assert.Equal(t, tt.SeoHasH1, resultPage.Seo.HasH1)
 			assert.Len(t, resultPage.BrokenLinks, tt.BrokenLinksLen)
 			assert.WithinRange(t, resultPage.DiscoveredAt, startTime, endTime)
 		}
