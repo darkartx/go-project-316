@@ -61,7 +61,7 @@ func (a *Analizer) Analize(ctx context.Context) (Report, error) {
 
 	go processWorker(a.httpClient, a.inCh, a.doneCh, a.stopCh)
 
-	a.analizeUrl(a.rootUrl, AnalizeMethodGet, a.depth, LinkTypePage)
+	a.analizeUrl(a.rootUrl, AnalizeMethodGet, 0, LinkTypePage)
 	a.handleResult(ctx)
 
 	return a.Report(), nil
@@ -92,7 +92,7 @@ func (a *Analizer) analizeUrl(url *url.URL, method AnalizeMethod, depth uint, li
 			urlState.LinkType = linkType
 		}
 
-		if urlState.Depth < depth {
+		if urlState.Depth > depth {
 			urlState.Depth = depth
 
 			if analizeUrl, exists := a.doneUrls[urlStr]; exists {
@@ -137,10 +137,10 @@ func (a *Analizer) processNextUrls(analizeUrl *AnalizeUrl) {
 	var depth uint = 0
 
 	if urlState, exists := a.states[urlStr]; exists {
-		depth = urlState.Depth
+		depth = urlState.Depth + 1
 	}
 
-	if depth == 0 ||
+	if depth > a.depth ||
 		analizeUrl.Result.UrlType != UrlTypePage ||
 		analizeUrl.Result.PageData == nil ||
 		!isRootUrlEquals(analizeUrl.Result.Url, a.rootUrl) {
@@ -148,7 +148,7 @@ func (a *Analizer) processNextUrls(analizeUrl *AnalizeUrl) {
 	}
 
 	for _, link := range analizeUrl.Result.PageData.Links {
-		a.analizeUrl(link.Url, analizeMethod(link), depth-1, link.LinkType)
+		a.analizeUrl(link.Url, analizeMethod(link), depth, link.LinkType)
 	}
 }
 
@@ -164,7 +164,7 @@ func (a *Analizer) Report() Report {
 		urlStr := page.Url.String()
 		urlState := a.states[urlStr]
 
-		if urlState.Depth == 0 ||
+		if urlState.Depth > a.depth ||
 			urlState.LinkType != LinkTypePage ||
 			!isRootUrlEquals(page.Url, a.rootUrl) {
 			continue
@@ -180,7 +180,7 @@ func (a *Analizer) makePageReport(page *AnalizeUrl, depth uint) ReportPage {
 	var reportPage ReportPage
 
 	reportPage.URL = page.Result.Url.String()
-	reportPage.Depth = depth - 1
+	reportPage.Depth = depth
 	reportPage.DiscoveredAt = page.Result.DiscoveredAt
 	reportPage.HTTPStatus = page.Result.HttpCode
 	reportPage.Status = "ok"
