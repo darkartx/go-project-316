@@ -61,7 +61,7 @@ type PageDataSeo struct {
 	HasH1          bool
 }
 
-func analizeUrlGet(httpClient *http.Client, url *url.URL) *AnalizeUrlResult {
+func analizeUrlGet(httpClient *HTTPClient, url *url.URL) *AnalizeUrlResult {
 	var result AnalizeUrlResult
 
 	result.Url = url
@@ -91,7 +91,7 @@ func analizeUrlGet(httpClient *http.Client, url *url.URL) *AnalizeUrlResult {
 	return &result
 }
 
-func analizeUrlHead(httpClient *http.Client, url *url.URL) *AnalizeUrlResult {
+func analizeUrlHead(httpClient *HTTPClient, url *url.URL) *AnalizeUrlResult {
 	var result AnalizeUrlResult
 
 	result.Url = url

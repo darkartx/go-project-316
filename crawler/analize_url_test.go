@@ -12,7 +12,7 @@ import (
 
 func Test_AnalizeUrlGet_Page(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/")
 		if err != nil {
@@ -77,7 +77,7 @@ func Test_AnalizeUrlGet_Page(t *testing.T) {
 
 func Test_AnalizeUrlGet_NotFound(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/not-found")
 		if err != nil {
@@ -100,7 +100,7 @@ func Test_AnalizeUrlGet_NotFound(t *testing.T) {
 
 func Test_AnalizeUrlGet_Asset(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/assets/css/main.css")
 		if err != nil {
@@ -123,7 +123,7 @@ func Test_AnalizeUrlGet_Asset(t *testing.T) {
 
 func Test_AnalizeUrlGet_PageWithoutLinks(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/no-links")
 		if err != nil {
@@ -151,7 +151,7 @@ func Test_AnalizeUrlGet_PageWithoutLinks(t *testing.T) {
 
 func Test_AnalizeUrlGet_Sitemap(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/sitemap.xml")
 		if err != nil {
@@ -173,7 +173,7 @@ func Test_AnalizeUrlGet_Sitemap(t *testing.T) {
 }
 
 func Test_AnalizeUrlGet_Error(t *testing.T) {
-	httpClient := &http.Client{}
+	httpClient := &HTTPClient{http.DefaultClient, ""}
 
 	parsedURL, err := url.Parse("http://127.0.0.1:19999/nonexistent")
 	if err != nil {
@@ -195,7 +195,7 @@ func Test_AnalizeUrlGet_Error(t *testing.T) {
 
 func Test_AnalizeUrlGet_DuplicateLinks(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/duplicate-links")
 		if err != nil {
@@ -234,7 +234,7 @@ func Test_AnalizeUrlGet_DuplicateLinks(t *testing.T) {
 
 func Test_AnalizeUrlGet_AnchorLinks(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/anchor-links")
 		if err != nil {
@@ -271,7 +271,7 @@ func Test_AnalizeUrlGet_AnchorLinks(t *testing.T) {
 
 func Test_AnalizeUrlGet_ExternalLinks(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/external-links")
 		if err != nil {
@@ -311,7 +311,7 @@ func Test_AnalizeUrlGet_ExternalLinks(t *testing.T) {
 
 func Test_AnalizeUrlGet_MixedContent(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/mixed-content")
 		if err != nil {
@@ -360,7 +360,7 @@ func Test_AnalizeUrlGet_MixedContent(t *testing.T) {
 
 func Test_AnalizeUrlHead_Page(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/")
 		if err != nil {
@@ -383,7 +383,7 @@ func Test_AnalizeUrlHead_Page(t *testing.T) {
 
 func Test_AnalizeUrlHead_NotFound(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/not-found")
 		if err != nil {
@@ -406,7 +406,7 @@ func Test_AnalizeUrlHead_NotFound(t *testing.T) {
 
 func Test_AnalizeUrlHead_Asset(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/assets/css/main.css")
 		if err != nil {
@@ -429,7 +429,7 @@ func Test_AnalizeUrlHead_Asset(t *testing.T) {
 
 func Test_AnalizeUrlHead_Sitemap(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
-		httpClient := http.DefaultClient
+		httpClient := &HTTPClient{http.DefaultClient, ""}
 
 		parsedURL, err := url.Parse(server.URL + "/sitemap.xml")
 		if err != nil {
@@ -451,7 +451,7 @@ func Test_AnalizeUrlHead_Sitemap(t *testing.T) {
 }
 
 func Test_AnalizeUrlHead_Error(t *testing.T) {
-	httpClient := &http.Client{}
+	httpClient := &HTTPClient{http.DefaultClient, ""}
 
 	parsedURL, err := url.Parse("http://127.0.0.1:19999/nonexistent")
 	if err != nil {

@@ -27,3 +27,7 @@ GLOBAL OPTIONS:
    --workers uint       number of concurrent workers (default: 4)
    --help, -h           show help
 ```
+
+## Depth
+
+The `depth` parameter defines the crawling depth. The starting URL is assigned a depth of 0 in the final report, with subsequent addresses having increased depth values based on their distance from the origin.

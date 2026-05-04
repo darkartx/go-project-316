@@ -24,7 +24,7 @@ func Test_AnalizerAnalize_BrokenLinks(t *testing.T) {
 			t.Fatalf("parse rootUrl error: %v", err)
 		}
 
-		analizer := NewAnalizer(rootUrl, 1, httpClient)
+		analizer := NewAnalizer(rootUrl, 1, 0, "", httpClient)
 
 		ctx := context.Background()
 
@@ -102,7 +102,7 @@ func Test_AnalizerAnalize_Page(t *testing.T) {
 			t.Fatalf("parse rootUrl error: %v", err)
 		}
 
-		analizer := NewAnalizer(rootUrl, 10, httpClient)
+		analizer := NewAnalizer(rootUrl, 10, 0, "", httpClient)
 
 		ctx := context.Background()
 
@@ -338,7 +338,7 @@ func Test_AnalizerAnalize_CtxWithTimeout(t *testing.T) {
 			t.Fatalf("parse rootUrl error: %v", err)
 		}
 
-		analizer := NewAnalizer(rootUrl, 10, httpClient)
+		analizer := NewAnalizer(rootUrl, 10, 0, "", httpClient)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 
@@ -375,7 +375,7 @@ func Test_AnalizerAnalize_Timeout(t *testing.T) {
 		t.Fatalf("parse rootUrl error: %v", err)
 	}
 
-	analizer := NewAnalizer(rootUrl, 10, httpClient)
+	analizer := NewAnalizer(rootUrl, 10, 0, "", httpClient)
 	ctx := context.Background()
 
 	startTime := time.Now()
@@ -430,7 +430,7 @@ func Test_AnalizerAnalize_NetworkError(t *testing.T) {
 		t.Fatalf("parse rootUrl error: %v", err)
 	}
 
-	analizer := NewAnalizer(rootUrl, 10, httpClient)
+	analizer := NewAnalizer(rootUrl, 10, 0, "", httpClient)
 	ctx := context.Background()
 
 	startTime := time.Now()
@@ -474,5 +474,185 @@ func Test_AnalizerAnalize_NetworkError(t *testing.T) {
 
 	for url := range cases {
 		t.Errorf("expected result page: %s", url)
+	}
+}
+
+func Test_AnalizerAnalize_UserAgent(t *testing.T) {
+	userAgent := "Test User Agent"
+
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, userAgent, r.Header.Get("User-Agent"))
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+	defer server.Close()
+
+	httpClient := http.DefaultClient
+
+	rootUrl, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse rootUrl error: %v", err)
+	}
+
+	analizer := NewAnalizer(rootUrl, 10, 0, userAgent, httpClient)
+	ctx := context.Background()
+
+	_, err = analizer.Analize(ctx)
+
+	if err != nil {
+		t.Fatalf("analizer.Analize error: %v", err)
+	}
+}
+
+func Test_AnalizerAnalize_Retries(t *testing.T) {
+	attempts := 0
+	expectedRetries := 3
+
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			if attempts <= expectedRetries {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+	defer server.Close()
+
+	httpClient := http.DefaultClient
+
+	rootUrl, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse rootUrl error: %v", err)
+	}
+
+	analizer := NewAnalizer(rootUrl, 1, uint(expectedRetries), "", httpClient)
+	ctx := context.Background()
+
+	result, err := analizer.Analize(ctx)
+	if err != nil {
+		t.Fatalf("analizer.Analize error: %v", err)
+	}
+
+	assert.Equal(t, expectedRetries+1, attempts)
+
+	if assert.Len(t, result.Pages, 1) {
+		assert.Equal(t, http.StatusOK, result.Pages[0].HTTPStatus)
+		assert.Equal(t, "", result.Pages[0].Error)
+	}
+}
+
+func Test_AnalizerAnalize_RetriesExhausted(t *testing.T) {
+	attempts := 0
+	maxRetries := 2
+
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			w.WriteHeader(http.StatusInternalServerError)
+		}),
+	)
+	defer server.Close()
+
+	httpClient := http.DefaultClient
+
+	rootUrl, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse rootUrl error: %v", err)
+	}
+
+	analizer := NewAnalizer(rootUrl, 1, uint(maxRetries), "", httpClient)
+	ctx := context.Background()
+
+	result, err := analizer.Analize(ctx)
+	if err != nil {
+		t.Fatalf("analizer.Analize error: %v", err)
+	}
+
+	assert.Equal(t, maxRetries+1, attempts)
+
+	if assert.Len(t, result.Pages, 1) {
+		assert.Equal(t, http.StatusInternalServerError, result.Pages[0].HTTPStatus)
+	}
+}
+
+func Test_AnalizerAnalize_RetriesZero(t *testing.T) {
+	attempts := 0
+
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			w.WriteHeader(http.StatusInternalServerError)
+		}),
+	)
+	defer server.Close()
+
+	httpClient := http.DefaultClient
+
+	rootUrl, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse rootUrl error: %v", err)
+	}
+
+	analizer := NewAnalizer(rootUrl, 1, 0, "", httpClient)
+	ctx := context.Background()
+
+	result, err := analizer.Analize(ctx)
+	if err != nil {
+		t.Fatalf("analizer.Analize error: %v", err)
+	}
+
+	assert.Equal(t, 1, attempts)
+
+	if assert.Len(t, result.Pages, 1) {
+		assert.Equal(t, http.StatusInternalServerError, result.Pages[0].HTTPStatus)
+	}
+}
+
+func Test_AnalizerAnalize_RetriesWithNetworkError(t *testing.T) {
+	attempts := 0
+	maxRetries := 3
+
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			if attempts <= maxRetries {
+				hj, ok := w.(http.Hijacker)
+				if ok {
+					conn, _, err := hj.Hijack()
+					if err == nil {
+						conn.Close()
+						return
+					}
+				}
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+	defer server.Close()
+
+	httpClient := http.DefaultClient
+
+	rootUrl, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse rootUrl error: %v", err)
+	}
+
+	analizer := NewAnalizer(rootUrl, 1, uint(maxRetries), "", httpClient)
+	ctx := context.Background()
+
+	result, err := analizer.Analize(ctx)
+	if err != nil {
+		t.Fatalf("analizer.Analize error: %v", err)
+	}
+
+	assert.Equal(t, maxRetries+1, attempts)
+
+	if assert.Len(t, result.Pages, 1) {
+		assert.Equal(t, http.StatusOK, result.Pages[0].HTTPStatus)
 	}
 }

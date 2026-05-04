@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -29,17 +30,18 @@ func Analize(ctx context.Context, opts Options) ([]byte, error) {
 		return nil, err
 	}
 
-	analizer := NewAnalizer(rootUrl, opts.Depth, httpClient)
+	analizer := NewAnalizer(rootUrl, opts.Depth, opts.Retries, opts.UserAgent, httpClient)
 	report, err := analizer.Analize(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return makeJsonReport(report)
+	return makeJsonReport(report, opts.IndentJSON)
 }
 
-func makeJsonReport(report Report) ([]byte, error) {
-	result, err := json.MarshalIndent(report, "", "  ")
+func makeJsonReport(report Report, indentSize uint) ([]byte, error) {
+	indent := strings.Repeat(" ", int(indentSize))
+	result, err := json.MarshalIndent(report, "", indent)
 
 	if err != nil {
 		return nil, err

@@ -81,7 +81,7 @@ func main() {
 			opts.Timeout = cmd.Duration("timeout")
 			opts.UserAgent = cmd.String("user-agent")
 			opts.Concurrency = cmd.Uint("workers")
-			// opts.IndentJSON = 0
+			opts.IndentJSON = 2
 			opts.HTTPClient = &http.Client{}
 
 			result, err := crawler.Analize(ctx, opts)

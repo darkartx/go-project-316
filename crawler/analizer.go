@@ -13,7 +13,7 @@ type AnalizeUrl struct {
 	Method AnalizeMethod
 }
 
-func (a *AnalizeUrl) analize(httpClient *http.Client) {
+func (a *AnalizeUrl) analize(httpClient *HTTPClient) {
 	switch a.Method {
 	case AnalizeMethodGet:
 		a.Result = analizeUrlGet(httpClient, a.Url)
@@ -24,11 +24,12 @@ func (a *AnalizeUrl) analize(httpClient *http.Client) {
 
 type UrlState struct {
 	Depth    uint
+	Retires  uint
 	LinkType LinkType
 }
 
 type Analizer struct {
-	httpClient *http.Client
+	httpClient *HTTPClient
 	doneUrls   map[string]*AnalizeUrl
 	inProcess  map[string]struct{}
 	states     map[string]*UrlState
@@ -37,12 +38,14 @@ type Analizer struct {
 	stopCh     chan struct{}
 	rootUrl    *url.URL
 	depth      uint
+	retries    uint
 }
 
-func NewAnalizer(rootUrl *url.URL, depth uint, httpClient *http.Client) *Analizer {
+func NewAnalizer(rootUrl *url.URL, depth uint, retries uint, userAgent string, innerHttpClient *http.Client) *Analizer {
 	doneUrls := make(map[string]*AnalizeUrl)
 	inProcess := make(map[string]struct{})
 	states := make(map[string]*UrlState)
+	httpClient := &HTTPClient{innerHttpClient, userAgent}
 
 	return &Analizer{
 		httpClient: httpClient,
@@ -51,6 +54,7 @@ func NewAnalizer(rootUrl *url.URL, depth uint, httpClient *http.Client) *Analize
 		states:     states,
 		rootUrl:    rootUrl,
 		depth:      depth,
+		retries:    retries,
 	}
 }
 
@@ -105,6 +109,7 @@ func (a *Analizer) analizeUrl(url *url.URL, method AnalizeMethod, depth uint, li
 
 	a.states[urlStr] = &UrlState{
 		Depth:    depth,
+		Retires:  0,
 		LinkType: linkType,
 	}
 
@@ -113,6 +118,11 @@ func (a *Analizer) analizeUrl(url *url.URL, method AnalizeMethod, depth uint, li
 		Method: method,
 	}
 
+	return a.processUrl(analizeUrl)
+}
+
+func (a *Analizer) processUrl(analizeUrl *AnalizeUrl) bool {
+	urlStr := analizeUrl.Url.String()
 	a.inProcess[urlStr] = struct{}{}
 
 	select {
@@ -126,6 +136,15 @@ func (a *Analizer) analizeUrl(url *url.URL, method AnalizeMethod, depth uint, li
 func (a *Analizer) postProcess(analizeUrl *AnalizeUrl) {
 	urlStr := analizeUrl.Url.String()
 	delete(a.inProcess, urlStr)
+
+	if analizeUrl.Result.Error != nil || analizeUrl.Result.HttpCode == 429 || analizeUrl.Result.HttpCode >= 500 {
+		state := a.states[urlStr]
+		if state.Retires < a.retries {
+			state.Retires += 1
+			a.processUrl(analizeUrl)
+			return
+		}
+	}
 
 	a.processNextUrls(analizeUrl)
 
@@ -218,7 +237,7 @@ func (a *Analizer) makePageReport(page *AnalizeUrl, depth uint) ReportPage {
 	return reportPage
 }
 
-func processWorker(httpClient *http.Client, inCh chan *AnalizeUrl, doneCh chan *AnalizeUrl, stopCh chan struct{}) {
+func processWorker(httpClient *HTTPClient, inCh chan *AnalizeUrl, doneCh chan *AnalizeUrl, stopCh chan struct{}) {
 	for {
 		select {
 		case analizeUrl := <-inCh:
@@ -247,4 +266,31 @@ func analizeMethod(link PageDataLink) AnalizeMethod {
 	default:
 		return AnalizeMethodHead
 	}
+}
+
+type HTTPClient struct {
+	inner     *http.Client
+	userAgent string
+}
+
+func (c *HTTPClient) Get(url string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", c.userAgent)
+
+	return c.inner.Do(req)
+}
+
+func (c *HTTPClient) Head(url string) (*http.Response, error) {
+	req, err := http.NewRequest("HEAD", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", c.userAgent)
+
+	return c.inner.Do(req)
 }
