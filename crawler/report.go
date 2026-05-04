@@ -17,6 +17,7 @@ type ReportPage struct {
 	Seo          ReportPageSeo          `json:"seo"`
 	Error        string                 `json:"error"`
 	BrokenLinks  []ReportPageBrokenLink `json:"broken_links"`
+	Assets       []ReportPageAsset      `json:"assets"`
 	DiscoveredAt time.Time              `json:"discovered_at"`
 }
 
@@ -32,4 +33,12 @@ type ReportPageSeo struct {
 	HasDescription bool   `json:"has_description"`
 	Description    string `json:"description,omitempty"`
 	HasH1          bool   `json:"has_h1"`
+}
+
+type ReportPageAsset struct {
+	URL        string `json:"url"`
+	Type       string `json:"type"`
+	StatusCode int    `json:"status_code"`
+	SizeBytes  uint   `json:"size_bytes"`
+	Error      string `json:"error"`
 }

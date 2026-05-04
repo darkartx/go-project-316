@@ -5,6 +5,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,8 +15,10 @@ import (
 type UrlType uint8
 
 const (
-	UrlTypeUnknown UrlType = iota
-	UrlTypeOther
+	UrlTypeOther UrlType = iota
+	UrlTypeImage
+	UrlTypeScript
+	UrlTypeStyle
 	UrlTypePage
 )
 
@@ -33,6 +36,7 @@ type AnalizeUrlResult struct {
 	HttpCode      int
 	UrlType       UrlType
 	PageData      *PageData
+	ContentLength uint
 	DiscoveredAt  time.Time
 }
 
@@ -44,7 +48,10 @@ type PageData struct {
 type LinkType uint8
 
 const (
-	LinkTypeAsset = iota
+	LinkTypeOther = iota
+	LinkTypeStyle
+	LinkTypeImage
+	LinkTypeScript
 	LinkTypePage
 )
 
@@ -76,6 +83,7 @@ func analizeUrlGet(httpClient *HTTPClient, url *url.URL) *AnalizeUrlResult {
 
 		result.HttpCode = res.StatusCode
 		result.UrlType = detectUrlType(res)
+		result.ContentLength = extractContentLength(res)
 
 		if result.UrlType == UrlTypePage {
 			if pageData, err := extractPageData(res.Body, url); err != nil {
@@ -104,6 +112,7 @@ func analizeUrlHead(httpClient *HTTPClient, url *url.URL) *AnalizeUrlResult {
 	} else {
 		result.HttpCode = res.StatusCode
 		result.UrlType = detectUrlType(res)
+		result.ContentLength = extractContentLength(res)
 	}
 
 	result.DiscoveredAt = time.Now()
@@ -115,13 +124,13 @@ func detectUrlType(response *http.Response) UrlType {
 	contentType := response.Header.Get("Content-Type")
 
 	if contentType == "" {
-		return UrlTypeUnknown
+		return UrlTypeOther
 	}
 
 	mediaType, _, err := mime.ParseMediaType(contentType)
 
 	if err != nil {
-		return UrlTypeUnknown
+		return UrlTypeOther
 	} else {
 		return mediaTypeToUrlType(mediaType)
 	}
@@ -131,7 +140,14 @@ func mediaTypeToUrlType(mediaType string) UrlType {
 	switch mediaType {
 	case "text/html":
 		return UrlTypePage
+	case "text/css":
+		return UrlTypeStyle
+	case "application/javascript":
+		return UrlTypeScript
 	default:
+		if strings.HasPrefix(mediaType, "image") {
+			return UrlTypeImage
+		}
 		return UrlTypeOther
 	}
 }
@@ -154,17 +170,21 @@ func extractPageData(body io.Reader, rootUrl *url.URL) (*PageData, error) {
 		}
 
 		token := tokenizer.Token()
+		var link *PageDataLink
 
 		switch token.Data {
-		case "a", "link", "script", "img", "source", "iframe":
-			link := extractHtmlLink(token, rootUrl)
-			if link != nil {
-				linkUrl := link.Url.String()
-				if _, ok := seenLinks[linkUrl]; !ok {
-					seenLinks[linkUrl] = struct{}{}
-					result.Links = append(result.Links, *link)
-				}
-			}
+		case "a":
+			link = extractALink(token, rootUrl)
+		case "iframe":
+			link = extractIframeLink(token, rootUrl)
+		case "link":
+			link = extractLinkLink(token, rootUrl)
+		case "script":
+			link = extractScriptLink(token, rootUrl)
+		case "img":
+			link = extractImgLink(token, rootUrl)
+		case "source":
+			link = extractSourceLink(token, rootUrl)
 		case "title":
 			result.Seo.HasTitle = true
 			result.Seo.Title = extractHtmlString(token, tokenizer)
@@ -177,61 +197,183 @@ func extractPageData(body io.Reader, rootUrl *url.URL) (*PageData, error) {
 			}
 		case "h1":
 			result.Seo.HasH1 = true
-		default:
-			continue
+		}
+
+		if link != nil {
+			linkUrl := link.Url.String()
+			if _, ok := seenLinks[linkUrl]; !ok {
+				seenLinks[linkUrl] = struct{}{}
+				result.Links = append(result.Links, *link)
+			}
 		}
 	}
 
 	return result, nil
 }
 
-func extractHtmlLink(token html.Token, rootUrl *url.URL) *PageDataLink {
-	var attr string
-	var linkType LinkType
+func extractALink(token html.Token, rootUrl *url.URL) *PageDataLink {
+	for _, a := range token.Attr {
+		if a.Key != "href" {
+			continue
+		}
 
-	switch token.Data {
-	case "a":
-		attr = "href"
-		linkType = LinkTypePage
-	case "link":
-		attr = "href"
-		linkType = LinkTypeAsset
-	case "script", "img", "source":
-		attr = "src"
-		linkType = LinkTypeAsset
-	case "iframe":
-		attr = "src"
-		linkType = LinkTypePage
+		resolved := resolveLink(a.Val, rootUrl)
+		if resolved == nil {
+			return nil
+		}
+
+		return &PageDataLink{resolved, LinkTypePage}
+	}
+
+	return nil
+}
+
+func extractLinkLink(token html.Token, rootUrl *url.URL) *PageDataLink {
+	var rel string
+
+	for _, a := range token.Attr {
+		if a.Key != "rel" {
+			continue
+		}
+
+		rel = strings.TrimSpace(a.Val)
+		break
 	}
 
 	for _, a := range token.Attr {
-		if a.Key != attr {
+		if a.Key != "href" {
 			continue
 		}
 
-		href := strings.TrimSpace(a.Val)
-		if href == "" || strings.HasPrefix(href, "#") {
+		resolved := resolveLink(a.Val, rootUrl)
+		if resolved == nil {
 			return nil
 		}
 
-		parsed, err := url.Parse(href)
-		if err != nil {
-			return nil
-		}
+		var linkType LinkType
 
-		resolved := rootUrl.ResolveReference(parsed)
-		resolved.Fragment = ""
-
-		switch resolved.Scheme {
-		case "http", "https":
+		switch rel {
+		case "stylesheet":
+			linkType = LinkTypeStyle
+		case "icon":
+			linkType = LinkTypeImage
 		default:
-			continue
+			linkType = LinkTypeOther
 		}
 
 		return &PageDataLink{resolved, linkType}
 	}
 
 	return nil
+}
+
+func extractScriptLink(token html.Token, rootUrl *url.URL) *PageDataLink {
+	for _, a := range token.Attr {
+		if a.Key != "src" {
+			continue
+		}
+
+		resolved := resolveLink(a.Val, rootUrl)
+		if resolved == nil {
+			return nil
+		}
+
+		return &PageDataLink{resolved, LinkTypeScript}
+	}
+
+	return nil
+}
+
+func extractIframeLink(token html.Token, rootUrl *url.URL) *PageDataLink {
+	for _, a := range token.Attr {
+		if a.Key != "src" {
+			continue
+		}
+
+		resolved := resolveLink(a.Val, rootUrl)
+		if resolved == nil {
+			return nil
+		}
+
+		return &PageDataLink{resolved, LinkTypePage}
+	}
+
+	return nil
+}
+
+func extractImgLink(token html.Token, rootUrl *url.URL) *PageDataLink {
+	for _, a := range token.Attr {
+		if a.Key != "src" {
+			continue
+		}
+
+		resolved := resolveLink(a.Val, rootUrl)
+		if resolved == nil {
+			return nil
+		}
+
+		return &PageDataLink{resolved, LinkTypeImage}
+	}
+
+	return nil
+}
+
+func extractSourceLink(token html.Token, rootUrl *url.URL) *PageDataLink {
+	var typ string
+
+	for _, a := range token.Attr {
+		if a.Key != "type" {
+			continue
+		}
+
+		typ = strings.TrimSpace(a.Val)
+		break
+	}
+
+	for _, a := range token.Attr {
+		if a.Key != "src" {
+			continue
+		}
+
+		resolved := resolveLink(a.Val, rootUrl)
+		if resolved == nil {
+			return nil
+		}
+
+		var linkType LinkType
+
+		if strings.HasPrefix(typ, "image") {
+			linkType = LinkTypeImage
+		} else {
+			linkType = LinkTypeOther
+		}
+
+		return &PageDataLink{resolved, linkType}
+	}
+
+	return nil
+}
+
+func resolveLink(link string, rootUrl *url.URL) *url.URL {
+	link = strings.TrimSpace(link)
+	if link == "" || strings.HasPrefix(link, "#") {
+		return nil
+	}
+
+	parsed, err := url.Parse(link)
+	if err != nil {
+		return nil
+	}
+
+	resolved := rootUrl.ResolveReference(parsed)
+	resolved.Fragment = ""
+
+	switch resolved.Scheme {
+	case "http", "https":
+		return resolved
+	default:
+		return nil
+	}
 }
 
 func extractHtmlString(startToken html.Token, tokenizer *html.Tokenizer) string {
@@ -273,4 +415,19 @@ func extractDescription(token html.Token) (string, bool) {
 	}
 
 	return "", false
+}
+
+func extractContentLength(response *http.Response) uint {
+	contentLength := response.Header.Get("Content-Length")
+
+	if contentLength == "" {
+		return 0
+	}
+
+	result, err := strconv.ParseUint(contentLength, 10, 32)
+	if err != nil {
+		return 0
+	}
+
+	return uint(result)
 }

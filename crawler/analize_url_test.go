@@ -28,6 +28,7 @@ func Test_AnalizeUrlGet_Page(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
 		assert.Equal(t, UrlTypePage, result.UrlType)
+		assert.Equal(t, uint(1942), result.ContentLength)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 		assert.True(t, result.PageData.Seo.HasTitle)
 		assert.Equal(t, "Test Site - Home&", result.PageData.Seo.Title)
@@ -39,16 +40,16 @@ func Test_AnalizeUrlGet_Page(t *testing.T) {
 			Url      string
 			LinkType LinkType
 		}{
-			{"/assets/css/main.css", LinkTypeAsset},
-			{"/assets/css/responsive.css", LinkTypeAsset},
-			{"/assets/images/icon.svg", LinkTypeAsset},
-			{"/assets/images/logo.png", LinkTypeAsset},
+			{"/assets/css/main.css", LinkTypeStyle},
+			{"/assets/css/responsive.css", LinkTypeStyle},
+			{"/assets/images/icon.svg", LinkTypeImage},
+			{"/assets/images/logo.png", LinkTypeImage},
 			{"/", LinkTypePage},
 			{"/about", LinkTypePage},
 			{"/contact", LinkTypePage},
 			{"/blog", LinkTypePage},
 			{"/nofollow-page", LinkTypePage},
-			{"/assets/images/banner.jpg", LinkTypeAsset},
+			{"/assets/images/banner.jpg", LinkTypeImage},
 			{"/deep/nested/page", LinkTypePage},
 			{"/external-links", LinkTypePage},
 			{"/broken-links", LinkTypePage},
@@ -62,8 +63,8 @@ func Test_AnalizeUrlGet_Page(t *testing.T) {
 			{"/large-page", LinkTypePage},
 			{"/sitemap.xml", LinkTypePage},
 			{"/robots.txt", LinkTypePage},
-			{"/assets/js/app.js", LinkTypeAsset},
-			{"/assets/js/vendor.js", LinkTypeAsset},
+			{"/assets/js/app.js", LinkTypeScript},
+			{"/assets/js/vendor.js", LinkTypeScript},
 		}
 
 		for i, tt := range expectedLinks {
@@ -93,12 +94,13 @@ func Test_AnalizeUrlGet_NotFound(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusNotFound, result.HttpCode)
 		assert.Equal(t, UrlTypeOther, result.UrlType)
+		assert.Equal(t, uint(19), result.ContentLength)
 		assert.Nil(t, result.PageData)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 	})
 }
 
-func Test_AnalizeUrlGet_Asset(t *testing.T) {
+func Test_AnalizeUrlGet_Style(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
 		httpClient := &HTTPClient{http.DefaultClient, ""}
 
@@ -115,7 +117,56 @@ func Test_AnalizeUrlGet_Asset(t *testing.T) {
 		assert.Equal(t, AnalizeMethodGet, result.AnalizeMethod)
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
-		assert.Equal(t, UrlTypeOther, result.UrlType)
+		assert.Equal(t, UrlTypeStyle, result.UrlType)
+		assert.Equal(t, uint(798), result.ContentLength)
+		assert.Nil(t, result.PageData)
+		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
+	})
+}
+
+func Test_AnalizeUrlGet_Script(t *testing.T) {
+	withTestServer(t, func(server *httptest.Server) {
+		httpClient := &HTTPClient{http.DefaultClient, ""}
+
+		parsedURL, err := url.Parse(server.URL + "/assets/js/app.js")
+		if err != nil {
+			t.Fatalf("failed to parse URL: %v", err)
+		}
+
+		startTime := time.Now()
+		result := analizeUrlGet(httpClient, parsedURL)
+		endTime := time.Now()
+
+		assert.Equal(t, parsedURL, result.Url)
+		assert.Equal(t, AnalizeMethodGet, result.AnalizeMethod)
+		assert.Nil(t, result.Error)
+		assert.Equal(t, http.StatusOK, result.HttpCode)
+		assert.Equal(t, UrlTypeScript, result.UrlType)
+		assert.Equal(t, uint(818), result.ContentLength)
+		assert.Nil(t, result.PageData)
+		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
+	})
+}
+
+func Test_AnalizeUrlGet_Image(t *testing.T) {
+	withTestServer(t, func(server *httptest.Server) {
+		httpClient := &HTTPClient{http.DefaultClient, ""}
+
+		parsedURL, err := url.Parse(server.URL + "/assets/images/icon.svg")
+		if err != nil {
+			t.Fatalf("failed to parse URL: %v", err)
+		}
+
+		startTime := time.Now()
+		result := analizeUrlGet(httpClient, parsedURL)
+		endTime := time.Now()
+
+		assert.Equal(t, parsedURL, result.Url)
+		assert.Equal(t, AnalizeMethodGet, result.AnalizeMethod)
+		assert.Nil(t, result.Error)
+		assert.Equal(t, http.StatusOK, result.HttpCode)
+		assert.Equal(t, UrlTypeImage, result.UrlType)
+		assert.Equal(t, uint(242), result.ContentLength)
 		assert.Nil(t, result.PageData)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 	})
@@ -139,6 +190,7 @@ func Test_AnalizeUrlGet_PageWithoutLinks(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
 		assert.Equal(t, UrlTypePage, result.UrlType)
+		assert.Equal(t, uint(249), result.ContentLength)
 		assert.Len(t, result.PageData.Links, 0)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 		assert.False(t, result.PageData.Seo.HasTitle)
@@ -167,6 +219,7 @@ func Test_AnalizeUrlGet_Sitemap(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
 		assert.Equal(t, UrlTypeOther, result.UrlType)
+		assert.Equal(t, uint(970), result.ContentLength)
 		assert.Nil(t, result.PageData)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 	})
@@ -188,7 +241,8 @@ func Test_AnalizeUrlGet_Error(t *testing.T) {
 	assert.Equal(t, AnalizeMethodGet, result.AnalizeMethod)
 	assert.NotNil(t, result.Error)
 	assert.Equal(t, 0, result.HttpCode)
-	assert.Equal(t, UrlTypeUnknown, result.UrlType)
+	assert.Equal(t, UrlTypeOther, result.UrlType)
+	assert.Equal(t, uint(0), result.ContentLength)
 	assert.Nil(t, result.PageData)
 	assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 }
@@ -211,13 +265,14 @@ func Test_AnalizeUrlGet_DuplicateLinks(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
 		assert.Equal(t, UrlTypePage, result.UrlType)
+		assert.Equal(t, uint(689), result.ContentLength)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 
 		expectedLinks := []struct {
 			Url      string
 			LinkType LinkType
 		}{
-			{"/assets/css/main.css", LinkTypeAsset},
+			{"/assets/css/main.css", LinkTypeStyle},
 			{"/", LinkTypePage},
 			{"/about", LinkTypePage},
 			{"/contact", LinkTypePage},
@@ -250,6 +305,7 @@ func Test_AnalizeUrlGet_AnchorLinks(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
 		assert.Equal(t, UrlTypePage, result.UrlType)
+		assert.Equal(t, uint(884), result.ContentLength)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 
 		expectedLinks := []struct {
@@ -287,6 +343,7 @@ func Test_AnalizeUrlGet_ExternalLinks(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
 		assert.Equal(t, UrlTypePage, result.UrlType)
+		assert.Equal(t, uint(552), result.ContentLength)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 
 		expectedLinks := []struct {
@@ -327,13 +384,14 @@ func Test_AnalizeUrlGet_MixedContent(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
 		assert.Equal(t, UrlTypePage, result.UrlType)
+		assert.Equal(t, uint(1539), result.ContentLength)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 
 		expectedLinks := []struct {
 			Url      string
 			LinkType LinkType
 		}{
-			{server.URL + "/assets/css/main.css", LinkTypeAsset},
+			{server.URL + "/assets/css/main.css", LinkTypeStyle},
 			{server.URL + "/", LinkTypePage},
 			{server.URL + "/about", LinkTypePage},
 			{server.URL + "/contact", LinkTypePage},
@@ -342,11 +400,11 @@ func Test_AnalizeUrlGet_MixedContent(t *testing.T) {
 			{server.URL + "/not-found", LinkTypePage},
 			{server.URL + "/blog?page=2&sort=date", LinkTypePage},
 			{server.URL + "/api/data?format=json", LinkTypePage},
-			{server.URL + "/assets/images/logo.png", LinkTypeAsset},
-			{server.URL + "/assets/images/banner.jpg", LinkTypeAsset},
-			{"https://external.com/image.png", LinkTypeAsset},
-			{server.URL + "/assets/js/app.js", LinkTypeAsset},
-			{"https://external.com/script.js", LinkTypeAsset},
+			{server.URL + "/assets/images/logo.png", LinkTypeImage},
+			{server.URL + "/assets/images/banner.jpg", LinkTypeImage},
+			{"https://external.com/image.png", LinkTypeImage},
+			{server.URL + "/assets/js/app.js", LinkTypeScript},
+			{"https://external.com/script.js", LinkTypeScript},
 		}
 
 		for i, tt := range expectedLinks {
@@ -376,6 +434,7 @@ func Test_AnalizeUrlHead_Page(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
 		assert.Equal(t, UrlTypePage, result.UrlType)
+		assert.Equal(t, uint(1942), result.ContentLength)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 		assert.Nil(t, result.PageData)
 	})
@@ -399,12 +458,13 @@ func Test_AnalizeUrlHead_NotFound(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusNotFound, result.HttpCode)
 		assert.Equal(t, UrlTypeOther, result.UrlType)
+		assert.Equal(t, uint(19), result.ContentLength)
 		assert.Nil(t, result.PageData)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 	})
 }
 
-func Test_AnalizeUrlHead_Asset(t *testing.T) {
+func Test_AnalizeUrlHead_Style(t *testing.T) {
 	withTestServer(t, func(server *httptest.Server) {
 		httpClient := &HTTPClient{http.DefaultClient, ""}
 
@@ -421,7 +481,56 @@ func Test_AnalizeUrlHead_Asset(t *testing.T) {
 		assert.Equal(t, AnalizeMethodHead, result.AnalizeMethod)
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
-		assert.Equal(t, UrlTypeOther, result.UrlType)
+		assert.Equal(t, UrlTypeStyle, result.UrlType)
+		assert.Equal(t, uint(798), result.ContentLength)
+		assert.Nil(t, result.PageData)
+		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
+	})
+}
+
+func Test_AnalizeUrlHead_Script(t *testing.T) {
+	withTestServer(t, func(server *httptest.Server) {
+		httpClient := &HTTPClient{http.DefaultClient, ""}
+
+		parsedURL, err := url.Parse(server.URL + "/assets/js/app.js")
+		if err != nil {
+			t.Fatalf("failed to parse URL: %v", err)
+		}
+
+		startTime := time.Now()
+		result := analizeUrlHead(httpClient, parsedURL)
+		endTime := time.Now()
+
+		assert.Equal(t, parsedURL, result.Url)
+		assert.Equal(t, AnalizeMethodHead, result.AnalizeMethod)
+		assert.Nil(t, result.Error)
+		assert.Equal(t, http.StatusOK, result.HttpCode)
+		assert.Equal(t, UrlTypeScript, result.UrlType)
+		assert.Equal(t, uint(818), result.ContentLength)
+		assert.Nil(t, result.PageData)
+		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
+	})
+}
+
+func Test_AnalizeUrlHead_Image(t *testing.T) {
+	withTestServer(t, func(server *httptest.Server) {
+		httpClient := &HTTPClient{http.DefaultClient, ""}
+
+		parsedURL, err := url.Parse(server.URL + "/assets/images/icon.svg")
+		if err != nil {
+			t.Fatalf("failed to parse URL: %v", err)
+		}
+
+		startTime := time.Now()
+		result := analizeUrlHead(httpClient, parsedURL)
+		endTime := time.Now()
+
+		assert.Equal(t, parsedURL, result.Url)
+		assert.Equal(t, AnalizeMethodHead, result.AnalizeMethod)
+		assert.Nil(t, result.Error)
+		assert.Equal(t, http.StatusOK, result.HttpCode)
+		assert.Equal(t, UrlTypeImage, result.UrlType)
+		assert.Equal(t, uint(242), result.ContentLength)
 		assert.Nil(t, result.PageData)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 	})
@@ -445,6 +554,7 @@ func Test_AnalizeUrlHead_Sitemap(t *testing.T) {
 		assert.Nil(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.HttpCode)
 		assert.Equal(t, UrlTypeOther, result.UrlType)
+		assert.Equal(t, uint(970), result.ContentLength)
 		assert.Nil(t, result.PageData)
 		assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 	})
@@ -466,7 +576,8 @@ func Test_AnalizeUrlHead_Error(t *testing.T) {
 	assert.Equal(t, AnalizeMethodHead, result.AnalizeMethod)
 	assert.NotNil(t, result.Error)
 	assert.Equal(t, 0, result.HttpCode)
-	assert.Equal(t, UrlTypeUnknown, result.UrlType)
+	assert.Equal(t, UrlTypeOther, result.UrlType)
+	assert.Equal(t, uint(0), result.ContentLength)
 	assert.Nil(t, result.PageData)
 	assert.WithinRange(t, result.DiscoveredAt, startTime, endTime)
 }

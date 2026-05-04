@@ -24,4 +24,4 @@ build: ## Build app
 	go build -o bin/hexlet-go-crawler ./cmd/hexlet-go-crawler
 
 run: ## Run app
-	go run ./cmd/hexlet-go-crawler ${URL} --depth=1
+	go run ./cmd/hexlet-go-crawler ${URL} --depth=0

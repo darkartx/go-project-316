@@ -159,7 +159,7 @@ func (a *Analizer) processNextUrls(analizeUrl *AnalizeUrl) {
 		depth = urlState.Depth + 1
 	}
 
-	if depth > a.depth ||
+	if depth > a.depth+1 ||
 		analizeUrl.Result.UrlType != UrlTypePage ||
 		analizeUrl.Result.PageData == nil ||
 		!isRootUrlEquals(analizeUrl.Result.Url, a.rootUrl) {
@@ -209,6 +209,7 @@ func (a *Analizer) makePageReport(page *AnalizeUrl, depth uint) ReportPage {
 	}
 
 	reportPage.BrokenLinks = make([]ReportPageBrokenLink, 0)
+	reportPage.Assets = make([]ReportPageAsset, 0)
 	if page.Result.PageData != nil {
 		reportPage.Seo.HasTitle = page.Result.PageData.Seo.HasTitle
 		reportPage.Seo.Title = page.Result.PageData.Seo.Title
@@ -219,17 +220,36 @@ func (a *Analizer) makePageReport(page *AnalizeUrl, depth uint) ReportPage {
 		for _, link := range page.Result.PageData.Links {
 			item := a.doneUrls[link.Url.String()]
 
-			if item == nil {
+			if item == nil || item.Result == nil {
 				continue
 			}
 
-			if item.Result != nil && (item.Result.Error != nil || item.Result.HttpCode >= 400) {
-				var errorString string
-				if item.Result.Error != nil {
-					errorString = item.Result.Error.Error()
-				}
+			var errorString string
+			if item.Result.Error != nil {
+				errorString = item.Result.Error.Error()
+			}
+
+			if item.Result.Error != nil || item.Result.HttpCode >= 400 {
 				brokenLink := ReportPageBrokenLink{item.Url.String(), item.Result.HttpCode, errorString}
 				reportPage.BrokenLinks = append(reportPage.BrokenLinks, brokenLink)
+			}
+
+			var assetType string
+
+			switch link.LinkType {
+			case LinkTypeImage:
+				assetType = "image"
+			case LinkTypeScript:
+				assetType = "script"
+			case LinkTypeStyle:
+				assetType = "style"
+			case LinkTypeOther:
+				assetType = "other"
+			}
+
+			if assetType != "" {
+				asset := ReportPageAsset{item.Url.String(), assetType, item.Result.HttpCode, item.Result.ContentLength, errorString}
+				reportPage.Assets = append(reportPage.Assets, asset)
 			}
 		}
 	}
