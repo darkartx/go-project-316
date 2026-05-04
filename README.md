@@ -31,3 +31,7 @@ GLOBAL OPTIONS:
 ## Depth
 
 The `depth` parameter defines the crawling depth. The starting URL is assigned a depth of 0 in the final report, with subsequent addresses having increased depth values based on their distance from the origin.
+
+## Retries
+
+The `retries` parameter specifies the number of retry attempts for failed HTTP requests. If a request fails due to a network error or a server-side issue, the crawler will retry the request up to the specified number of times before marking the URL as failed. The default value is `1`, meaning each URL will be attempted once without any additional retries.

@@ -623,7 +623,7 @@ func Test_AnalizerAnalize_RetriesWithNetworkError(t *testing.T) {
 				if ok {
 					conn, _, err := hj.Hijack()
 					if err == nil {
-						conn.Close()
+						conn.Close() //nolint:errcheck
 						return
 					}
 				}
